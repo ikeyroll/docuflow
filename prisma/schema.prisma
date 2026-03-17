@@ -1,0 +1,379 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// COMPANY SETTINGS (Single row — this company's configuration)
+// ============================================================
+
+model CompanySettings {
+  id                  String        @id @default(cuid())
+  name                String        @default("")
+  ssmNumber           String        @default("") @map("ssm_number")
+  sstNumber           String        @default("") @map("sst_number")
+  logoUrl             String?       @map("logo_url")
+  address             String        @default("")
+  phone               String        @default("")
+  email               String        @default("")
+  website             String        @default("")
+  defaultCurrency     String        @default("MYR") @map("default_currency")
+  defaultPaymentTerms Int           @default(30) @map("default_payment_terms")
+  defaultTaxRate      Int           @default(600) @map("default_tax_rate")
+  isSetupComplete     Boolean       @default(false) @map("is_setup_complete")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  bankAccounts        BankAccount[]
+
+  @@map("company_settings")
+}
+
+model BankAccount {
+  id            String          @id @default(cuid())
+  bankName      String          @map("bank_name")
+  accountNumber String          @map("account_number")
+  accountHolder String          @map("account_holder")
+  isDefault     Boolean         @default(false) @map("is_default")
+  companyId     String          @map("company_id")
+  company       CompanySettings @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  @@map("bank_accounts")
+}
+
+// ============================================================
+// USERS & AUTH
+// ============================================================
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  STAFF
+  VIEWER
+}
+
+model User {
+  id               String        @id @default(cuid())
+  email            String        @unique
+  name             String
+  passwordHash     String        @map("password_hash")
+  role             UserRole      @default(STAFF)
+  isActive         Boolean       @default(true) @map("is_active")
+  lastLoginAt      DateTime?     @map("last_login_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  documentsCreated  Document[]    @relation("CreatedBy")
+  documentsApproved Document[]    @relation("ApprovedBy")
+  paymentsRecorded  Payment[]     @relation("RecordedBy")
+  activityLogs      ActivityLog[]
+
+  @@map("users")
+}
+
+// ============================================================
+// CLIENTS & SUPPLIERS
+// ============================================================
+
+model Client {
+  id              String     @id @default(cuid())
+  name            String
+  companyName     String     @map("company_name")
+  email           String     @default("")
+  phone           String     @default("")
+  billingAddress  String     @default("") @map("billing_address")
+  shippingAddress String     @default("") @map("shipping_address")
+  paymentTerms    Int?       @map("payment_terms")
+  notes           String     @default("")
+  isActive        Boolean    @default(true) @map("is_active")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  documents       Document[]
+
+  @@map("clients")
+}
+
+model Supplier {
+  id          String     @id @default(cuid())
+  name        String
+  companyName String     @map("company_name")
+  email       String     @default("")
+  phone       String     @default("")
+  address     String     @default("")
+  notes       String     @default("")
+  isActive    Boolean    @default(true) @map("is_active")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  documents   Document[]
+
+  @@map("suppliers")
+}
+
+// ============================================================
+// PRODUCT / SERVICE CATALOGUE
+// ============================================================
+
+enum TaxCategory {
+  SERVICE_TAX
+  SALES_TAX
+  EXEMPT
+}
+
+model Product {
+  id           String              @id @default(cuid())
+  name         String
+  description  String              @default("")
+  defaultPrice Int                 @map("default_price")
+  unit         String              @default("unit")
+  taxCategory  TaxCategory         @default(SERVICE_TAX) @map("tax_category")
+  category     String              @default("")
+  isActive     Boolean             @default(true) @map("is_active")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  lineItems    DocumentLineItem[]
+
+  @@map("products")
+}
+
+// ============================================================
+// DOCUMENTS (Quotation, Invoice, PO, Credit Note)
+// ============================================================
+
+enum DocType {
+  QUOTATION
+  INVOICE
+  PURCHASE_ORDER
+  CREDIT_NOTE
+}
+
+enum DocStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+  ACKNOWLEDGED
+  PARTIALLY_RECEIVED
+  FULFILLED
+  CANCELLED
+}
+
+model Document {
+  id               String     @id @default(cuid())
+  docType          DocType    @map("doc_type")
+  documentNumber   String     @unique @map("document_number")
+  referenceNumber  String     @default("") @map("reference_number")
+  status           DocStatus  @default(DRAFT)
+  version          Int        @default(1)
+
+  clientId         String?    @map("client_id")
+  client           Client?    @relation(fields: [clientId], references: [id])
+  supplierId       String?    @map("supplier_id")
+  supplier         Supplier?  @relation(fields: [supplierId], references: [id])
+
+  issueDate        DateTime   @map("issue_date")
+  dueDate          DateTime?  @map("due_date")
+  validUntil       DateTime?  @map("valid_until")
+
+  subtotalSen      Int        @default(0) @map("subtotal_sen")
+  discountTotalSen Int        @default(0) @map("discount_total_sen")
+  taxTotalSen      Int        @default(0) @map("tax_total_sen")
+  roundingAdjSen   Int        @default(0) @map("rounding_adj_sen")
+  grandTotalSen    Int        @default(0) @map("grand_total_sen")
+
+  notes            String     @default("")
+  terms            String     @default("")
+  currency         String     @default("MYR")
+
+  parentDocumentId String?    @map("parent_document_id")
+  parentDocument   Document?  @relation("DocumentChain", fields: [parentDocumentId], references: [id])
+  childDocuments   Document[] @relation("DocumentChain")
+
+  templateId       String?    @map("template_id")
+  template         Template?  @relation(fields: [templateId], references: [id])
+
+  pdfUrl           String?    @map("pdf_url")
+
+  createdById      String     @map("created_by_id")
+  createdBy        User       @relation("CreatedBy", fields: [createdById], references: [id])
+  approvedById     String?    @map("approved_by_id")
+  approvedBy       User?      @relation("ApprovedBy", fields: [approvedById], references: [id])
+  sentAt           DateTime?  @map("sent_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  lineItems        DocumentLineItem[]
+  payments         Payment[]
+  history          DocumentHistory[]
+
+  @@index([docType, status])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([createdAt])
+  @@index([documentNumber])
+  @@map("documents")
+}
+
+// ============================================================
+// LINE ITEMS
+// ============================================================
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+model DocumentLineItem {
+  id            String       @id @default(cuid())
+  documentId    String       @map("document_id")
+  document      Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  productId     String?      @map("product_id")
+  product       Product?     @relation(fields: [productId], references: [id])
+
+  description   String
+  quantity      Int
+  unit          String       @default("unit")
+  unitPriceSen  Int          @map("unit_price_sen")
+
+  discountType  DiscountType @default(PERCENTAGE) @map("discount_type")
+  discountValue Int          @default(0) @map("discount_value")
+  taxRate       Int          @default(600) @map("tax_rate")
+  lineTotalSen  Int          @default(0) @map("line_total_sen")
+
+  sortOrder     Int          @default(0) @map("sort_order")
+
+  @@index([documentId])
+  @@map("document_line_items")
+}
+
+// ============================================================
+// PAYMENTS
+// ============================================================
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CHEQUE
+  E_WALLET
+  CREDIT_CARD
+  OTHER
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  documentId      String        @map("document_id")
+  document        Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  amountSen       Int           @map("amount_sen")
+  paymentDate     DateTime      @map("payment_date")
+  method          PaymentMethod
+  referenceNumber String        @default("") @map("reference_number")
+  notes           String        @default("")
+
+  recordedById    String        @map("recorded_by_id")
+  recordedBy      User          @relation("RecordedBy", fields: [recordedById], references: [id])
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@map("payments")
+}
+
+// ============================================================
+// DOCUMENT HISTORY
+// ============================================================
+
+enum HistoryAction {
+  CREATED
+  EDITED
+  STATUS_CHANGED
+  APPROVED
+  SENT
+  VOIDED
+  CONVERTED
+  PAYMENT_RECORDED
+}
+
+model DocumentHistory {
+  id           String        @id @default(cuid())
+  documentId   String        @map("document_id")
+  document     Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  action       HistoryAction
+  description  String        @default("")
+  snapshotJson Json?         @map("snapshot_json")
+  changedById  String        @map("changed_by_id")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@map("document_history")
+}
+
+// ============================================================
+// TEMPLATES
+// ============================================================
+
+model Template {
+  id          String     @id @default(cuid())
+  name        String
+  docType     DocType    @map("doc_type")
+  htmlContent String     @map("html_content") @db.Text
+  cssContent  String     @default("") @map("css_content") @db.Text
+  isDefault   Boolean    @default(false) @map("is_default")
+  createdById String?    @map("created_by_id")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  documents   Document[]
+
+  @@map("templates")
+}
+
+// ============================================================
+// DOCUMENT NUMBERING CONFIG
+// ============================================================
+
+model NumberingConfig {
+  id              String   @id @default(cuid())
+  docType         DocType  @unique @map("doc_type")
+  prefix          String
+  format          String   @default("{PREFIX}-{YYYY}-{SEQ:4}")
+  currentSequence Int      @default(0) @map("current_sequence")
+  resetYearly     Boolean  @default(true) @map("reset_yearly")
+  lastResetYear   Int?     @map("last_reset_year")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("numbering_config")
+}
+
+// ============================================================
+// ACTIVITY LOG
+// ============================================================
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("activity_log")
+}

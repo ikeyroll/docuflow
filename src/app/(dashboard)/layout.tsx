@@ -1,0 +1,38 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { Sidebar } from "@/components/layout/sidebar";
+import { Header } from "@/components/layout/header";
+import { db } from "@/lib/db";
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await auth();
+  if (!session) redirect("/login");
+
+  const company = await db.companySettings.findFirst({
+    select: { name: true, isSetupComplete: true },
+  });
+
+  if (!company?.isSetupComplete && session.user.role === "ADMIN") {
+    redirect("/setup");
+  }
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-muted/20">
+      <Sidebar userRole={session.user.role} />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Header
+          userName={session.user.name ?? ""}
+          userRole={session.user.role}
+          companyName={company?.name || "DocuFlow"}
+        />
+        <main className="flex-1 overflow-y-auto p-6">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
