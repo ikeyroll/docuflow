@@ -12,9 +12,14 @@ export default async function DashboardLayout({
   const session = await auth();
   if (!session) redirect("/login");
 
-  const company = await db.companySettings.findFirst({
-    select: { name: true, isSetupComplete: true },
-  });
+  let company = null;
+  try {
+    company = await db.companySettings.findFirst({
+      select: { name: true, isSetupComplete: true },
+    });
+  } catch (error) {
+    console.error("Failed to fetch company settings:", error);
+  }
 
   if (!company?.isSetupComplete && session.user.role === "ADMIN") {
     redirect("/setup");

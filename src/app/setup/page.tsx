@@ -8,11 +8,19 @@ export default async function SetupPage() {
   if (!session) redirect("/login");
   if (session.user.role !== "ADMIN") redirect("/dashboard");
 
-  const [company, bankAccounts, numberingConfigs] = await Promise.all([
-    db.companySettings.findFirst(),
-    db.bankAccount.findMany({ orderBy: { createdAt: "asc" } }),
-    db.numberingConfig.findMany({ orderBy: { docType: "asc" } }),
-  ]);
+  let company = null;
+  let bankAccounts: any[] = [];
+  let numberingConfigs: any[] = [];
+
+  try {
+    [company, bankAccounts, numberingConfigs] = await Promise.all([
+      db.companySettings.findFirst(),
+      db.bankAccount.findMany({ orderBy: { createdAt: "asc" } }).catch(() => []),
+      db.numberingConfig.findMany({ orderBy: { docType: "asc" } }).catch(() => []),
+    ]);
+  } catch (error) {
+    console.error("Failed to fetch setup data:", error);
+  }
 
   if (!company) redirect("/dashboard");
 
