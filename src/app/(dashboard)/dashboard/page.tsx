@@ -13,47 +13,64 @@ export default async function DashboardPage() {
 
   const now = new Date();
 
-  const [
-    outstandingAgg,
-    paidThisMonthAgg,
-    overdueCount,
-    draftCount,
-    recentQuotations,
-    recentInvoices,
-    overdueList,
-  ] = await Promise.all([
-    db.document.aggregate({
-      where: { docType: "INVOICE", status: { in: [DocStatus.SENT, DocStatus.PARTIALLY_PAID, DocStatus.OVERDUE] } },
-      _sum: { grandTotalSen: true },
-    }),
-    db.payment.aggregate({
-      where: { paymentDate: { gte: new Date(now.getFullYear(), now.getMonth(), 1) } },
-      _sum: { amountSen: true },
-    }),
-    db.document.count({ where: { docType: "INVOICE", status: DocStatus.OVERDUE } }),
-    db.document.count({ where: { status: DocStatus.DRAFT } }),
-    db.document.findMany({
-      where: { docType: "QUOTATION" },
-      include: { client: { select: { companyName: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
-    db.document.findMany({
-      where: { docType: "INVOICE" },
-      include: { client: { select: { companyName: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
-    db.document.findMany({
-      where: { docType: "INVOICE", status: DocStatus.OVERDUE },
-      include: { client: { select: { companyName: true } } },
-      orderBy: { dueDate: "asc" },
-      take: 5,
-    }),
-  ]);
+  let outstanding = 0;
+  let paidThisMonth = 0;
+  let overdueCount = 0;
+  let draftCount = 0;
+  let recentQuotations: any[] = [];
+  let recentInvoices: any[] = [];
+  let overdueList: any[] = [];
 
-  const outstanding = outstandingAgg._sum?.grandTotalSen ?? 0;
-  const paidThisMonth = paidThisMonthAgg._sum?.amountSen ?? 0;
+  try {
+    const [
+      outstandingAgg,
+      paidThisMonthAgg,
+      overdueCountResult,
+      draftCountResult,
+      recentQuotationsResult,
+      recentInvoicesResult,
+      overdueListResult,
+    ] = await Promise.all([
+      db.document.aggregate({
+        where: { docType: "INVOICE", status: { in: [DocStatus.SENT, DocStatus.PARTIALLY_PAID, DocStatus.OVERDUE] } },
+        _sum: { grandTotalSen: true },
+      }).catch(() => ({ _sum: { grandTotalSen: null } })),
+      db.payment.aggregate({
+        where: { paymentDate: { gte: new Date(now.getFullYear(), now.getMonth(), 1) } },
+        _sum: { amountSen: true },
+      }).catch(() => ({ _sum: { amountSen: null } })),
+      db.document.count({ where: { docType: "INVOICE", status: DocStatus.OVERDUE } }).catch(() => 0),
+      db.document.count({ where: { status: DocStatus.DRAFT } }).catch(() => 0),
+      db.document.findMany({
+        where: { docType: "QUOTATION" },
+        include: { client: { select: { companyName: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }).catch(() => []),
+      db.document.findMany({
+        where: { docType: "INVOICE" },
+        include: { client: { select: { companyName: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }).catch(() => []),
+      db.document.findMany({
+        where: { docType: "INVOICE", status: DocStatus.OVERDUE },
+        include: { client: { select: { companyName: true } } },
+        orderBy: { dueDate: "asc" },
+        take: 5,
+      }).catch(() => []),
+    ]);
+
+    outstanding = outstandingAgg._sum?.grandTotalSen ?? 0;
+    paidThisMonth = paidThisMonthAgg._sum?.amountSen ?? 0;
+    overdueCount = overdueCountResult;
+    draftCount = draftCountResult;
+    recentQuotations = recentQuotationsResult;
+    recentInvoices = recentInvoicesResult;
+    overdueList = overdueListResult;
+  } catch (error) {
+    console.error("Dashboard data fetch error:", error);
+  }
 
   return (
     <div className="space-y-6">
