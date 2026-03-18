@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,19 +32,18 @@ export function LoginForm() {
 
   async function onSubmit(data: LoginFormData) {
     setError(null);
-    const result = await signIn("credentials", {
-      email: data.email,
-      password: data.password,
-      redirect: false,
-    });
-
-    if (result?.error) {
+    try {
+      await signIn("credentials", {
+        email: data.email,
+        password: data.password,
+        redirectTo: "/dashboard",
+      });
+    } catch (err: unknown) {
+      // NextAuth throws a redirect on success — catch non-redirect errors only
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("NEXT_REDIRECT")) return; // successful redirect
       setError("Invalid email or password. Please try again.");
-      return;
     }
-
-    router.push("/dashboard");
-    router.refresh();
   }
 
   return (
