@@ -14,13 +14,13 @@ export default async function ReportsPage() {
   const thisYearStart = new Date(now.getFullYear(), 0, 1);
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  let revenueThisMonth = { _sum: { amountSen: null } };
-  let revenueThisYear = { _sum: { amountSen: null } };
-  let sstCollected = { _sum: { taxTotalSen: null } };
-  let agingCurrent = { _sum: { grandTotalSen: null }, _count: 0 };
-  let aging30 = { _sum: { grandTotalSen: null }, _count: 0 };
-  let aging60 = { _sum: { grandTotalSen: null }, _count: 0 };
-  let aging90plus = { _sum: { grandTotalSen: null }, _count: 0 };
+  let revenueThisMonth: { _sum: { amountSen: number | null } } = { _sum: { amountSen: null } };
+  let revenueThisYear: { _sum: { amountSen: number | null } } = { _sum: { amountSen: null } };
+  let sstCollected: { _sum: { taxTotalSen: number | null } } = { _sum: { taxTotalSen: null } };
+  let agingCurrent: { _sum: { grandTotalSen: number | null }, _count: number } = { _sum: { grandTotalSen: null }, _count: 0 };
+  let aging30: { _sum: { grandTotalSen: number | null }, _count: number } = { _sum: { grandTotalSen: null }, _count: 0 };
+  let aging60: { _sum: { grandTotalSen: number | null }, _count: number } = { _sum: { grandTotalSen: null }, _count: 0 };
+  let aging90plus: { _sum: { grandTotalSen: number | null }, _count: number } = { _sum: { grandTotalSen: null }, _count: 0 };
   let topClients: any[] = [];
   let clientRevList: [string, number][] = [];
 
