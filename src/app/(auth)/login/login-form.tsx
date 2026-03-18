@@ -24,6 +24,7 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -43,6 +44,12 @@ export function LoginForm() {
       if (message.includes("NEXT_REDIRECT")) return; // successful redirect
       setError("Invalid email or password. Please try again.");
     }
+  }
+
+  function handleQuickLogin() {
+    setValue("email", "admin@company.com");
+    setValue("password", "changeme123");
+    handleSubmit(onSubmit)();
   }
 
   return (
@@ -88,6 +95,16 @@ export function LoginForm() {
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Signing in..." : "Sign in"}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleQuickLogin}
+            disabled={isSubmitting}
+          >
+            🚀 Quick Login (Demo)
           </Button>
         </form>
       </CardContent>
