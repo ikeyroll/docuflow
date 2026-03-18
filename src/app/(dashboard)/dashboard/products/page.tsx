@@ -7,10 +7,15 @@ export default async function ProductsPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const products = await db.product.findMany({
-    select: { id: true, name: true, defaultPrice: true, unit: true, taxCategory: true, category: true, isActive: true },
-    orderBy: { name: "asc" },
-  });
+  let products: any[] = [];
+  try {
+    products = await db.product.findMany({
+      select: { id: true, name: true, defaultPrice: true, unit: true, taxCategory: true, category: true, isActive: true },
+      orderBy: { name: "asc" },
+    });
+  } catch (error) {
+    console.error("Failed to fetch products:", error);
+  }
 
   const rows = products.map(p => ({
     id: p.id,

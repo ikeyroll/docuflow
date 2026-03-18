@@ -14,85 +14,91 @@ export default async function ReportsPage() {
   const thisYearStart = new Date(now.getFullYear(), 0, 1);
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [
-    revenueThisMonth,
-    revenueThisYear,
-    sstCollected,
-    agingCurrent,
-    aging30,
-    aging60,
-    aging90plus,
-    topClients,
-  ] = await Promise.all([
-    // Revenue this month (paid invoices)
-    db.payment.aggregate({
-      where: { paymentDate: { gte: thisMonthStart } },
-      _sum: { amountSen: true },
-    }),
-    // Revenue this year
-    db.payment.aggregate({
-      where: { paymentDate: { gte: thisYearStart } },
-      _sum: { amountSen: true },
-    }),
-    // SST collected this year (tax on paid invoices)
-    db.document.aggregate({
-      where: {
-        docType: "INVOICE",
-        status: DocStatus.PAID,
-        issueDate: { gte: thisYearStart },
-      },
-      _sum: { taxTotalSen: true },
-    }),
-    // Aging: current (not yet due)
-    db.document.aggregate({
-      where: { docType: "INVOICE", status: { in: [DocStatus.SENT, DocStatus.PARTIALLY_PAID] }, dueDate: { gt: now } },
-      _sum: { grandTotalSen: true },
-      _count: true,
-    }),
-    // Aging: 1-30 days overdue
-    db.document.aggregate({
-      where: { docType: "INVOICE", status: DocStatus.OVERDUE, dueDate: { gt: new Date(now.getTime() - 30 * 86400000), lte: now } },
-      _sum: { grandTotalSen: true },
-      _count: true,
-    }),
-    // Aging: 31-60 days overdue
-    db.document.aggregate({
-      where: { docType: "INVOICE", status: DocStatus.OVERDUE, dueDate: { gt: new Date(now.getTime() - 60 * 86400000), lte: new Date(now.getTime() - 30 * 86400000) } },
-      _sum: { grandTotalSen: true },
-      _count: true,
-    }),
-    // Aging: 60+ days overdue
-    db.document.aggregate({
-      where: { docType: "INVOICE", status: DocStatus.OVERDUE, dueDate: { lte: new Date(now.getTime() - 60 * 86400000) } },
-      _sum: { grandTotalSen: true },
-      _count: true,
-    }),
-    // Top clients by revenue
-    db.payment.groupBy({
-      by: ["documentId"],
-      _sum: { amountSen: true },
-      orderBy: { _sum: { amountSen: "desc" } },
-      take: 10,
-    }),
-  ]);
+  let revenueThisMonth = { _sum: { amountSen: null } };
+  let revenueThisYear = { _sum: { amountSen: null } };
+  let sstCollected = { _sum: { taxTotalSen: null } };
+  let agingCurrent = { _sum: { grandTotalSen: null }, _count: 0 };
+  let aging30 = { _sum: { grandTotalSen: null }, _count: 0 };
+  let aging60 = { _sum: { grandTotalSen: null }, _count: 0 };
+  let aging90plus = { _sum: { grandTotalSen: null }, _count: 0 };
+  let topClients: any[] = [];
+  let clientRevList: [string, number][] = [];
 
-  // Get top clients with names
-  const topClientDocs = await Promise.all(
-    topClients.map(async (p) => {
-      const doc = await db.document.findUnique({
-        where: { id: p.documentId },
-        select: { clientId: true, client: { select: { companyName: true } } },
-      });
-      return { clientName: doc?.client?.companyName ?? "—", amountSen: p._sum.amountSen ?? 0 };
-    })
-  );
+  try {
+    [
+      revenueThisMonth,
+      revenueThisYear,
+      sstCollected,
+      agingCurrent,
+      aging30,
+      aging60,
+      aging90plus,
+      topClients,
+    ] = await Promise.all([
+      db.payment.aggregate({
+        where: { paymentDate: { gte: thisMonthStart } },
+        _sum: { amountSen: true },
+      }).catch(() => ({ _sum: { amountSen: null } })),
+      db.payment.aggregate({
+        where: { paymentDate: { gte: thisYearStart } },
+        _sum: { amountSen: true },
+      }).catch(() => ({ _sum: { amountSen: null } })),
+      db.document.aggregate({
+        where: {
+          docType: "INVOICE",
+          status: DocStatus.PAID,
+          issueDate: { gte: thisYearStart },
+        },
+        _sum: { taxTotalSen: true },
+      }).catch(() => ({ _sum: { taxTotalSen: null } })),
+      db.document.aggregate({
+        where: { docType: "INVOICE", status: { in: [DocStatus.SENT, DocStatus.PARTIALLY_PAID] }, dueDate: { gt: now } },
+        _sum: { grandTotalSen: true },
+        _count: true,
+      }).catch(() => ({ _sum: { grandTotalSen: null }, _count: 0 })),
+      db.document.aggregate({
+        where: { docType: "INVOICE", status: DocStatus.OVERDUE, dueDate: { gt: new Date(now.getTime() - 30 * 86400000), lte: now } },
+        _sum: { grandTotalSen: true },
+        _count: true,
+      }).catch(() => ({ _sum: { grandTotalSen: null }, _count: 0 })),
+      db.document.aggregate({
+        where: { docType: "INVOICE", status: DocStatus.OVERDUE, dueDate: { gt: new Date(now.getTime() - 60 * 86400000), lte: new Date(now.getTime() - 30 * 86400000) } },
+        _sum: { grandTotalSen: true },
+        _count: true,
+      }).catch(() => ({ _sum: { grandTotalSen: null }, _count: 0 })),
+      db.document.aggregate({
+        where: { docType: "INVOICE", status: DocStatus.OVERDUE, dueDate: { lte: new Date(now.getTime() - 60 * 86400000) } },
+        _sum: { grandTotalSen: true },
+        _count: true,
+      }).catch(() => ({ _sum: { grandTotalSen: null }, _count: 0 })),
+      db.payment.groupBy({
+        by: ["documentId"],
+        _sum: { amountSen: true },
+        orderBy: { _sum: { amountSen: "desc" } },
+        take: 10,
+      }).catch(() => []),
+    ]);
 
-  // Aggregate by client name
-  const clientRevMap: Record<string, number> = {};
-  for (const c of topClientDocs) {
-    clientRevMap[c.clientName] = (clientRevMap[c.clientName] ?? 0) + c.amountSen;
+    if (topClients.length > 0) {
+      const topClientDocs = await Promise.all(
+        topClients.map(async (p) => {
+          const doc = await db.document.findUnique({
+            where: { id: p.documentId },
+            select: { clientId: true, client: { select: { companyName: true } } },
+          }).catch(() => null);
+          return { clientName: doc?.client?.companyName ?? "—", amountSen: p._sum.amountSen ?? 0 };
+        })
+      );
+
+      const clientRevMap: Record<string, number> = {};
+      for (const c of topClientDocs) {
+        clientRevMap[c.clientName] = (clientRevMap[c.clientName] ?? 0) + c.amountSen;
+      }
+      clientRevList = Object.entries(clientRevMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    }
+  } catch (error) {
+    console.error("Failed to fetch reports data:", error);
   }
-  const clientRevList = Object.entries(clientRevMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   return (
     <div className="space-y-6">

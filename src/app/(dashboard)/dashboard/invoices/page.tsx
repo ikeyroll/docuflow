@@ -7,11 +7,16 @@ export default async function InvoicesPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const invoices = await db.document.findMany({
-    where: { docType: "INVOICE" },
-    include: { client: { select: { companyName: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  let invoices: any[] = [];
+  try {
+    invoices = await db.document.findMany({
+      where: { docType: "INVOICE" },
+      include: { client: { select: { companyName: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    console.error("Failed to fetch invoices:", error);
+  }
 
   const rows = invoices.map(d => ({
     id: d.id,

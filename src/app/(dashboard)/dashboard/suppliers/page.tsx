@@ -7,10 +7,15 @@ export default async function SuppliersPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const suppliers = await db.supplier.findMany({
-    select: { id: true, name: true, companyName: true, email: true, phone: true, isActive: true },
-    orderBy: { companyName: "asc" },
-  });
+  let suppliers: any[] = [];
+  try {
+    suppliers = await db.supplier.findMany({
+      select: { id: true, name: true, companyName: true, email: true, phone: true, isActive: true },
+      orderBy: { companyName: "asc" },
+    });
+  } catch (error) {
+    console.error("Failed to fetch suppliers:", error);
+  }
 
   const rows = suppliers.map(s => ({
     id: s.id,

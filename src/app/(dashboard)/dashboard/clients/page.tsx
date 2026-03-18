@@ -7,10 +7,15 @@ export default async function ClientsPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const clients = await db.client.findMany({
-    select: { id: true, name: true, companyName: true, email: true, phone: true, isActive: true },
-    orderBy: { companyName: "asc" },
-  });
+  let clients: any[] = [];
+  try {
+    clients = await db.client.findMany({
+      select: { id: true, name: true, companyName: true, email: true, phone: true, isActive: true },
+      orderBy: { companyName: "asc" },
+    });
+  } catch (error) {
+    console.error("Failed to fetch clients:", error);
+  }
 
   const rows = clients.map(c => ({
     id: c.id,

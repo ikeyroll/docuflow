@@ -7,11 +7,16 @@ export default async function QuotationsPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const quotations = await db.document.findMany({
-    where: { docType: "QUOTATION" },
-    include: { client: { select: { companyName: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  let quotations: any[] = [];
+  try {
+    quotations = await db.document.findMany({
+      where: { docType: "QUOTATION" },
+      include: { client: { select: { companyName: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    console.error("Failed to fetch quotations:", error);
+  }
 
   const rows = quotations.map(q => ({
     id: q.id,

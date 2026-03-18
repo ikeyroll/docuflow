@@ -28,17 +28,24 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { p
   const perPage = 50;
   const skip = (page - 1) * perPage;
 
-  const [logs, total] = await Promise.all([
-    db.documentHistory.findMany({
-      include: {
-        document: { select: { documentNumber: true, docType: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: perPage,
-    }),
-    db.documentHistory.count(),
-  ]);
+  let logs: any[] = [];
+  let total = 0;
+
+  try {
+    [logs, total] = await Promise.all([
+      db.documentHistory.findMany({
+        include: {
+          document: { select: { documentNumber: true, docType: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: perPage,
+      }),
+      db.documentHistory.count(),
+    ]);
+  } catch (error) {
+    console.error("Failed to fetch audit log:", error);
+  }
 
   const totalPages = Math.ceil(total / perPage);
 

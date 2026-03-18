@@ -7,11 +7,16 @@ export default async function CreditNotesPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const docs = await db.document.findMany({
-    where: { docType: "CREDIT_NOTE" },
-    include: { client: { select: { companyName: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  let docs: any[] = [];
+  try {
+    docs = await db.document.findMany({
+      where: { docType: "CREDIT_NOTE" },
+      include: { client: { select: { companyName: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    console.error("Failed to fetch credit notes:", error);
+  }
 
   const rows = docs.map(d => ({
     id: d.id,
